@@ -1,0 +1,43 @@
+name: Setup and Test Iodine DNS Tunnel
+
+on:
+  workflow_dispatch:
+    inputs:
+      domain:
+        description: 'Delegated Tunnel Domain (e.g., t.example.com)'
+        required: true
+        default: 't.example.com'
+
+jobs:
+  run-iodine:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Iodine
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y iodine
+
+      - name: Verify Installation
+        run: |
+          iodined -v
+
+      - name: Run Iodine Server (Background Mode)
+        env:
+          IODINE_PASSWORD: ${{ secrets.IODINE_PASSWORD }}
+        run: |
+          if [ -z "$IODINE_PASSWORD" ]; then
+            echo "Error: IODINE_PASSWORD secret is not set."
+            exit 1
+          fi
+          
+          # Start iodined daemon with virtual IP 10.0.0.1 on the specified domain
+          # Using sudo is required to attach the tap/tun network interface
+          sudo iodined -c -P "$IODINE_PASSWORD" 10.0.0.1 ${{ github.event.inputs.domain }}
+
+      - name: Check Network Interface Status
+        run: |
+          ip addr show
